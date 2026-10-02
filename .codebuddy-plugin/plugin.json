@@ -1,0 +1,99 @@
+{
+  "name": "hermes-deploy-guild",
+  "version": "1.1.0",
+  "description": "A battle-tested deployment guild that installs and configures Hermes (hermes-agent) on remote Windows and macOS machines: environment recon, fast China-friendly mirror install, CLI plus Desktop(GUI) via -IncludeDesktop, provider/model wizard configuration, Sunlogin remote GUI automation, and end-to-end acceptance.",
+  "author": {
+    "name": "李彦明",
+    "email": ""
+  },
+  "agents": [
+    "./agents/hermes-deploy-guild-team-lead.md",
+    "./agents/env-scout.md",
+    "./agents/install-engineer.md",
+    "./agents/remote-operator.md",
+    "./agents/model-configurator.md",
+    "./agents/acceptance-verifier.md"
+  ],
+  "skills": ["./skills/hermes-deploy"],
+
+  "expertType": "team",
+  "agentName": "hermes-deploy-guild-team-lead",
+  "teamInfo": {
+    "leadAgent": "hermes-deploy-guild-team-lead",
+    "memberAgents": ["env-scout", "install-engineer", "remote-operator", "model-configurator", "acceptance-verifier"]
+  },
+
+  "displayName": {
+    "en": "Hermes Rapid Deploy Guild",
+    "zh": "Hermes速装团"
+  },
+  "profession": {
+    "en": "Hermes Rapid Deploy Guild",
+    "zh": "Hermes速装团"
+  },
+  "displayDescription": {
+    "en": "A full-auto team that installs Hermes on a remote Windows PC and wires up its LLM provider: recon, fast mirrored install, model config, acceptance.",
+    "zh": "远程电脑一键部署Hermes智能体，环境探测、Python安装、模型配置到验收，全自动完成。"
+  },
+  "avatar": "avatars/team.png",
+  "categoryId": "02-Engineering",
+  "defaultInitPrompt": {
+    "zh": "远程电脑上一键装好 Hermes 并配好模型。",
+    "en": "Install Hermes on my remote PC and configure the model in one go."
+  },
+  "plugin": "hermes-deploy-guild",
+  "tags": [
+    { "en": "Remote Deploy", "zh": "远程部署" },
+    { "en": "Python & PyPI", "zh": "Python环境" },
+    { "en": "LLM Agent Setup", "zh": "智能体配置" }
+  ],
+  "quickPrompts": [
+    { "en": "Install Hermes on my remote PC and configure the model in one go.", "zh": "远程电脑上一键装好 Hermes 并配好模型。" },
+    { "en": "Check whether my remote PC can install Hermes and what is missing in the environment.", "zh": "帮我看看远程电脑能不能装 Hermes，环境缺什么。" },
+    { "en": "My remote Hermes runs but reports no API key - please fix the configuration.", "zh": "远程 Hermes 装好了但报没有 API key，帮我修配置。" }
+  ],
+  "members": [
+    {
+      "id": "hermes-deploy-guild-team-lead",
+      "displayName": { "en": "Bi Suda", "zh": "毕速达" },
+      "profession": { "en": "Deployment Director", "zh": "部署总监" },
+      "avatar": "avatars/hermes-deploy-guild-team-lead.png",
+      "role": "lead"
+    },
+    {
+      "id": "env-scout",
+      "displayName": { "en": "Zhen Tanming", "zh": "甄探明" },
+      "profession": { "en": "Environment Scout", "zh": "环境侦察官" },
+      "avatar": "avatars/env-scout.png",
+      "role": "member"
+    },
+    {
+      "id": "install-engineer",
+      "displayName": { "en": "An Licheng", "zh": "安立成" },
+      "profession": { "en": "Installation Engineer", "zh": "安装工程师" },
+      "avatar": "avatars/install-engineer.png",
+      "role": "member"
+    },
+    {
+      "id": "remote-operator",
+      "displayName": { "en": "Lu Yuanyao", "zh": "陆远遥" },
+      "profession": { "en": "Remote Control Operator", "zh": "远控操盘手" },
+      "avatar": "avatars/remote-operator.png",
+      "role": "member"
+    },
+    {
+      "id": "model-configurator",
+      "displayName": { "en": "Pei Zhunqi", "zh": "裴准齐" },
+      "profession": { "en": "Model Configuration Specialist", "zh": "模型配置师" },
+      "avatar": "avatars/model-configurator.png",
+      "role": "member"
+    },
+    {
+      "id": "acceptance-verifier",
+      "displayName": { "en": "Yan Yanzhen", "zh": "阎验真" },
+      "profession": { "en": "Acceptance Verifier", "zh": "验收官" },
+      "avatar": "avatars/acceptance-verifier.png",
+      "role": "member"
+    }
+  ]
+}

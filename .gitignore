@@ -1,0 +1,25 @@
+# OS
+Thumbs.db
+.DS_Store
+desktop.ini
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# Screenshots / scratch (远端注入产生的临时文件)
+*.png
+!avatars/*.png
+*.log
+*.b64
+x.b64
+
+# Secrets — 绝不入库
+.env
+*.env
+config.yaml
+*.key
+*_api_key.txt
