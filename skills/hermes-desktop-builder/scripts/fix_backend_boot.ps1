@@ -1,5 +1,5 @@
 # Fix: Hermes desktop boots but no window appears / backend times out
-# (SECOND occurrence 2026-10-07 — root causes fully mapped this time)
+# (SECOND occurrence 2026-10-07 - root causes fully mapped this time)
 #
 # Symptom: Hermes.exe processes alive (4-5) but no window; desktop.log shows either
 #   "no usable Hermes install ... Waiting for first-run setup choice"  or
@@ -11,9 +11,9 @@
 #      -> EVERY CLI launch (incl. backend serve + venv import probe) first runs
 #      "completing source-update dependencies..." (uv/pip sync + product builds),
 #      exceeding the desktop's 90s backend timeout. NOTE: `hermes --version` does NOT
-#      trigger this (bypasses prepare_launch) — CLI looks healthy, extremely misleading.
+#      trigger this (bypasses prepare_launch) - CLI looks healthy, extremely misleading.
 #   2. Stale locks: `.hermes-update-in-progress` / `.hermes-update-in-progress.lock`
-#      in %LOCALAPPDATA%\hermes\ (left by killed processes) — block any new completion
+#      in %LOCALAPPDATA%\hermes\ (left by killed processes) - block any new completion
 #      attempt forever ("an update is still running" / silent idle).
 #   3. venv Python version gate: desktop source-install check only accepts 3.11/3.12/
 #      3.13 (e.g. 3.14.6 -> "broken/partial venv" -> "no usable Hermes install" ->
@@ -49,9 +49,8 @@ foreach ($m in @(
 )) {
     if (Test-Path $m) { Remove-Item $m -Force; Write-Output ("DELETED " + $m) }
 }
-Get-ChildItem $home2 -Recurse -Force -File -ErrorAction SilentlyContinue |
-    Where-Object { $_.Name -match '^source-completion-pending$|completion-pending|update-incomplete|lazy-refresh-incomplete' } |
-    ForEach-Object { Write-Output ("DELETED " + $_.FullName); Remove-Item $_.FullName -Force }
+$pending = Get-ChildItem $home2 -Recurse -Force -File -ErrorAction SilentlyContinue | Where-Object { $_.Name -match 'completion-pending|update-incomplete|lazy-refresh-incomplete' }
+foreach ($p in $pending) { Write-Output ("DELETED " + $p.FullName); Remove-Item -LiteralPath $p.FullName -Force }
 
 Write-Output "=== 3. env switches (user scope) ==="
 setx HERMES_DESKTOP_HERMES "$hermes" | Out-Null
