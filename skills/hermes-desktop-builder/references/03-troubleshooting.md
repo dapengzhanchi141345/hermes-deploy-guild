@@ -74,6 +74,50 @@
 
 **预防规则（写进每个部署的验收）**：装完桌面端只算 50%，必须再看一眼 desktop.log 确认后端起来（`HERMES_BACKEND_READY`）才算交付。
 
+### E. PS 5.1 / SFTP 铁律（每条都真实炸过，全局适用）
+
+| 坑 | 症状 | 规则 |
+|---|---|---|
+| 无 UTF-8 BOM | 脚本一上传就报语法错，中文/emoji 位置全乱 | put 时自动补 BOM（ssh_exec.py / deploy_gate.py 均已内置）；脚本本体尽量纯 ASCII |
+| 单引号不展开变量 | 探测命令把 `$env:LOCALAPPDATA\...` 当字面量 → 误判 exe 缺失 → 连锁伪构建 | 路径判存先**双引号赋值给变量**再引用（deploy_gate Stage2 实战教训） |
+| 多行管道续行 | SFTP 上传（LF 行尾）的 .ps1 里行尾 `\|` 接下一行，PS 5.1 可能解析失败（报"意外标记 }"） | **全部单行语句** + foreach 循环 + -LiteralPath |
+| 内嵌 here-string 写 C# | `@"..."@` 在 LF 文件里解析炸（"缺少 using 指令"= C# 被 PS 当代码解析） | C# 存单独 .cs 文件 `Add-Type -Path`，或压成单行字符串 `Add-Type -TypeDefinition $cs` |
+| stdin 管道写脚本 | paramiko `exec_command` 往 `powershell -Command -` stdin 写多行 → OSError: File not open for writing | 一律 SFTP 传 .ps1 → `powershell -File` 执行 |
+| SSH 断开杀进程树 | 构建跑到一半没了 | 计划任务（schtasks）或本机后台任务挂住；Start-Process 分离也会死（会话关闭连带） |
+
+### F. 替代通道（SSH/GitHub 不通时）
+
+**F-1. ntfy 远控黄金通道**（无 SSH，只有向日葵/AweSun 远控窗口时）：
+```bash
+# 本机推脚本（必须压成单行！/raw 拉取会折叠换行，且禁 # 注释）
+curl -X PUT --data-binary @x.ps1 https://ntfy.sh/<topic>
+# 远程 PowerShell（向日葵里手敲一次即可）
+iex (irm https://ntfy.sh/<topic>/raw?poll=1)
+```
+- 逐字符键入丢字 = 本机窗口抢焦点；输字前校验前台窗口为向日葵
+- 本机注入工具：`E:\Hermes专用工作区\gui.py`（ctypes 键鼠）
+
+**F-2. GitHub 上传通道**（git clone/push 被 SSL 握手墙死时）：
+```bash
+# gh CLI 走本地代理可达 api.github.com；逐文件 PUT contents API
+b64=$(base64 -w0 "$file")
+gh api -X PUT repos/<owner>/<repo>/contents/<path> -f message="msg" -f content="$b64" -f branch=main --jq '.commit.sha'
+```
+- 实战验证：14/14 文件成功（2026-10-07）；上传前必须安全扫描明文凭据（`CDSR*|sk-*|ghp_*|password=`）
+- 克隆仓库同理走 `gh api repos/<r>/contents/<path>` 逐文件读
+
+### G. 服务器深度清理（2GB 内存级小服务器）
+
+| 项 | 命令要点 | 实测收益 |
+|---|---|---|
+| pagefile | 2GB 内存机器系统托管常给 5.5GB+ → `Win32_PageFileSetting` 设固定 3072MB（**重启生效**，会断交易/常驻服务，必须用户确认） | 磁盘再 +2.4GB |
+| 缓存全家桶 | 回收站 / `%TEMP%`(>2h) / npm / pip / uv / hermes\cache / WU\Download / CBS 旧日志 | ~2.4GB |
+| 内存枯竭 | psapi `EmptyWorkingSet` 全进程修剪（只压不杀，秒回 0.5GB+） | 0.09→0.67GB |
+| 禁区 | `MT5*` / `GoldstrategyEngine` / `workbuddy` / `hermes-agent`(桌面端本体 2.5GB) / `Recovery` | — |
+| 一键 | `scripts/clean_server.ps1 [-DryRun] [-Pagefile 3072]`（单行语句风格，PS 5.1 安全） | — |
+
+**诊断顺序**：`Get-PSDrive C` + `Win32_OperatingSystem.FreePhysicalMemory` 先拍基线 → 清理 → 同命令报终态 + pagefile 待重启项。
+
 ## 实战时间线（2026-10-07，101.35.12.205）
 
 | 时间 | 动作 | 结果 |
@@ -87,5 +131,9 @@
 | 17:27 | 终局校验：exe 204MB+启动存活 130MB | ✅ |
 | 17:47 | 用户"桌面没有"→补公共桌面快捷方式 | ✅ LNK_CREATED=True |
 | 18:49 | 用户嫌网页控制台→RDP 三件套 | ✅ 3389 放行+2 条规则 |
+| 19:xx | 桌面端进程在窗口不出 → 三杀手定位 | ✅ fix_backend_boot.ps1 |
+| 21:06 | Agnes 4-key 配置 + `hermes -z` 回 pong | ✅ 模型通 |
+| 21:50 | 门禁制落地：deploy_gate + acceptance 12 项 | ✅ 12/12 全绿 EXIT=0 |
+| 22:30 | 服务器深度清理 | ✅ 磁盘+2.3GB 内存+0.6GB |
 
 核心教训：**"环境限制不可行"的结论要先穷尽"源码级补丁"手段再下**。本次三步破局法（伪造工具集过校验 / npmmirror 镜像 / 删反直觉环境变量）可复用到任何 electron-builder 被墙场景。
