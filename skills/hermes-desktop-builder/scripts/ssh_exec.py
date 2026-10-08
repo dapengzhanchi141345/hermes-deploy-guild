@@ -33,6 +33,18 @@ def connect():
     return c
 
 
+def put_bom(c, local, remote):
+    """SFTP upload; prepend UTF-8 BOM if missing (PS 5.1 reads non-BOM files as ANSI)."""
+    with open(local, "rb") as fp:
+        data = fp.read()
+    if not data.startswith(b"\xef\xbb\xbf"):
+        data = b"\xef\xbb\xbf" + data
+    sftp = c.open_sftp()
+    with sftp.open(remote, "wb") as fp:
+        fp.write(data)
+    sftp.close()
+
+
 def main():
     if not HOST or not USER:
         print("ERROR: set SS_HOST / SS_USER / SS_PASS env vars first")
@@ -42,9 +54,7 @@ def main():
     try:
         if mode == "put":
             local, remote = sys.argv[2], sys.argv[3]
-            sftp = c.open_sftp()
-            sftp.put(local, remote)
-            sftp.close()
+            put_bom(c, local, remote)
             print("uploaded ->", remote)
         elif mode == "run":
             cmd = sys.argv[2]
@@ -58,9 +68,7 @@ def main():
             local = sys.argv[2]
             to = int(sys.argv[3]) if len(sys.argv) > 3 else 300
             remote = "C:/Users/%s/%s" % (USER, os.path.basename(local))
-            sftp = c.open_sftp()
-            sftp.put(local, remote)
-            sftp.close()
+            put_bom(c, local, remote)
             print("uploaded ->", remote)
             _, o, e = c.exec_command(
                 "powershell.exe -ExecutionPolicy Bypass -File " + remote, timeout=to
