@@ -1,7 +1,14 @@
 # 02 · 端到端 SOP（固定流程，命令原文）
 
 > 前提：远程 Windows 机器，SSH 22 可达，知道 Administrator 密码。
+> 没有 SSH 只有向日葵远控 → 先看 references/03 F-1（ntfy 黄金通道）。
 > 全程不需要 GitHub；只需 npmmirror 与 HTTPS 可达。
+
+## Phase 0 · 前置判定
+
+1. **数据目录两边都查**：新版文档 `%LOCALAPPDATA%\hermes\`，0.19.0 实测 `C:\Users\<u>\.hermes\`——排查配置/日志问题时先确认 CLI 版本再定目录。
+2. **磁盘/内存基线**：`Get-PSDrive C` + 内存可用量；2GB 内存机器先跑 Phase 7 清理再构建（vite 编译 8 分钟很吃内存）。
+3. **GitHub 连通性不用测**：默认被墙，构建路线已完全绕开。
 
 ## Phase 1 · 通道建立（本机操作）
 
@@ -172,6 +179,21 @@ hermes model
 3. 发 `hi` 有回复（模型通了）
 4. `hermes doctor` 无致命项
 5. 双击桌面 Hermes 图标能开 GUI
+
+## Phase 7 · 服务器深度清理（可选）
+
+```bash
+# 上传一次
+python ssh_exec.py put clean_server.ps1 "C:/Users/Administrator/clean_server.ps1"
+# 预览（什么都不删）
+python ssh_exec.py run "powershell -ExecutionPolicy Bypass -File C:\Users\Administrator\clean_server.ps1 -DryRun" 300
+# 实际执行
+python ssh_exec.py run "powershell -ExecutionPolicy Bypass -File C:\Users\Administrator\clean_server.ps1" 300
+# pagefile 收紧（重启才生效，会断 MT 交易与常驻服务——必须用户确认时机）
+python ssh_exec.py run "powershell -ExecutionPolicy Bypass -File C:\Users\Administrator\clean_server.ps1 -Pagefile 3072" 300
+```
+
+禁区：`MT5*` / `GoldstrategyEngine` / `workbuddy` / `hermes-agent` / `Recovery`。输出必含 `FREED_MB / C_FREE_GB / MEM_FREE_GB` 三行终态。
 
 ## 交付清单
 
