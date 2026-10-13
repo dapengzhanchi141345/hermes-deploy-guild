@@ -15,6 +15,7 @@ description: 在 GitHub 被墙的 Windows 服务器/电脑上，从源码构建�
 | 桌面端已构建但用户看不到图标 | Phase 5（快捷方式+RDP） |
 | 桌面端重打太慢 | Phase 4（提速到 ~62 秒） |
 | 桌面端进程在但窗口不出 | **先跑 `scripts/fix_backend_boot.ps1`**（三杀手，见 references/03 D-2） |
+| **本地机反复"启动不了/修好又坏"**（修了又坏、我测通用户挂、聊天 404） | **`scripts/fix_local_pm.ps1` + references/04**（三层根因：pm 环境损坏+遗留 User 变量禁自愈+沙箱拦 uv） |
 | 没有 SSH，只有向日葵/AweSun 远控 | references/03 F 节 ntfy 黄金通道（脚本必须压单行） |
 | 服务器磁盘/内存吃紧，要深度清理 | Phase 7（`scripts/clean_server.ps1`） |
 | 部署完要把技能包/产物传 GitHub | git 直连被墙时走 gh API 通道（references/03 F 节） |
@@ -29,7 +30,8 @@ description: 在 GitHub 被墙的 Windows 服务器/电脑上，从源码构建�
    - ③ **必须删掉** `ELECTRON_BUILDER_DANGEROUSLY_ALLOW_HTTP`——设了它 file:// 工具集会被当 url 类型强制要 checksum 报 `ToolsetCustom.checksum is required`
 4. **SSH 断开会杀进程树**：>10 分钟的构建必须挂计划任务（HermesPack）或用前台 exec_command+后台任务跑，别用 `Start-Process` 分离（会话关了它也死）。
 5. **模型配置分版本两路线**：git 新版（install.ps1 装，2026.9+）**直接写 config.yaml 全自动**（home 是 `%LOCALAPPDATA%\hermes`，不是 `~\.hermes`！写错位置静默不生效）；0.19.0 pip 版**只能 `hermes model` 交互向导**（手写 config.yaml 不生效，OPENAI_BASE_URL 对 custom provider 无效）。key 放同目录 `.env`。详见 references/02 Phase 6。
-6. **⚠️ 构建≠能启动（两次踩坑，必查）**：exe 能跑不等于桌面端能用。**每次装完必须验证 `%LOCALAPPDATA%\Hermes\logs\desktop.log` 里后端真正起来**（看到 `Starting Hermes backend` 且无 `Waiting for first-run setup choice`）。已知杀手：venv Python 版本不受支持（只认 3.11/3.12/3.13，如 3.14 会被判 "no usable Hermes install"）+ "source-update completion" 挂起标记让后端 90 秒超时。**一键修复：`scripts/fix_backend_boot.ps1`**（详见 references/03 D-2 节）。
+6. **⚠️ 构建≠能启动（两次踩坑，必查）**：exe 能跑不等于桌面端能用。**每次装完必须验证 desktop.log 里后端真正起来**（`HERMES_BACKEND_READY`）。已知杀手：venv Python 版本门 + pending 标记 + 陈旧锁。**一键修复：`scripts/fix_backend_boot.ps1`**（详见 references/03 D-2 节）。
+7. **⚠️ 反复修不好 = 三层叠加根因（2026-10-13 破案）**：① CLI 真身是 pm 托管环境（`installs\<hash>\environments\<env>\venv`，Py3.14），不是表面 3.11 venv，坏时 import pydantic_core 炸；② 遗留 User 级 `HERMES_DISABLE_LAZY_INSTALLS=1` 禁用自愈（AI 会话 shell 未继承 → "我测通你必挂"）；③ 沙箱/安全软件拦 uv 写缓存（os error 5）→ `pm repair` 会话内永远静默失败，**必须挂计划任务跑**。诊断只看 5 分钟内活跃的真日志（本地双 home 时 E: 安装 home 的 logs 才是真）。**一键修复：`scripts/fix_local_pm.ps1`**（详见 references/04）。
 
 ## 固定流程（六阶段门禁制，照做即可）
 
@@ -83,7 +85,8 @@ description: 在 GitHub 被墙的 Windows 服务器/电脑上，从源码构建�
 | `ssh_exec.py` | 通用 SSH/SFTP 驱动（凭据走环境变量） | 本机 |
 | `deploy_gate.py` | **🚦 端到端编排器**：六阶段门禁+自动修复+幂等重跑 | 本机 |
 | `acceptance_check.ps1` | **🏁 交付总验收**：12 项红绿门禁，EXIT=0 才可交付 | 传到服务器跑 |
-| `fix_backend_boot.ps1` | 一键修复"进程在窗口不出"（清标记/死锁+双保险变量） | 传到服务器跑 |
+| `fix_backend_boot.ps1` | 一键修复"进程在窗口不出"（清标记/死锁+锁；⚠️ 交付后应删 `HERMES_DISABLE_LAZY_INSTALLS` 变量） | 传到服务器跑 |
+| `fix_local_pm.ps1` | **本地机"反复修不好"一键修复**（删遗留变量+清污染 env+环境批量体检+计划任务跑 pm repair） | 本地机跑 |
 | `prepare-packaging-tools.mjs` | **核心补丁**：dir-only 跳过被墙工具链 | 覆盖 `apps\desktop\scripts\` 同名文件 |
 | `pack_run.ps1` | 全量构建（vite+builder，~10min），写 pack.log | `C:\Users\<user>\` |
 | `pack_builder_only.ps1` | 快速重打（~62s，复用渲染层），写 pack-builder.log | `C:\Users\<user>\` |
@@ -104,6 +107,11 @@ description: 在 GitHub 被墙的 Windows 服务器/电脑上，从源码构建�
 | "not a git checkout" | 残留目录冲突 | `Move-Item` 挪开重跑安装 |
 | 桌面看不到图标 | 快捷方式没建/没刷新 | make_shortcut.ps1 + 提醒 F5 |
 | 桌面端进程在但窗口不出 | 三杀手（pending 标记/陈旧锁/Python 版本门） | **fix_backend_boot.ps1** → 看 desktop.log 到 `HERMES_BACKEND_READY` |
+| 本地机修好又坏 / 我测通用户挂 | 三层根因（pm 环境坏+遗留变量禁自愈+沙箱拦 uv） | **fix_local_pm.ps1** → references/04 四步流程 |
+| venv import 一切正常但 CLI 报 ModuleNotFoundError | CLI 真身在 pm 托管环境（Py3.14），不是这个 venv | 批量体检 `installs\<hash>\environments`（references/04 §2.3） |
+| `hermes pm repair` exit 1 报 os error 5 拒绝访问 | 沙箱/安全软件拦 uv 写 cache\uv | 挂计划任务在沙箱外跑（references/04 §2.6） |
+| desktop.log 是几个月前的旧内容 | 本地双 home，看错日志 | 找 5 分钟内有 mtime 更新的那份（references/04 §2.1） |
+| 桌面端聊天 404 但 CLI 正常 | 双 home 配置不同步（一个死端点/无 key） | 从好 home 抠 model+providers 块移植+并 key（references/04 §2.2） |
 | .ps1 传上去就报语法错 | 无 BOM / 多行管道 / here-string | 按 Phase 1 四铁律改写（单行语句最稳） |
 | 探测命令把 `$env:LOCALAPPDATA\...` 当字面量 | PS 单引号不展开变量 | 双引号赋值给变量再用 |
 | git push/clone 被墙（SSL 握手失败） | GitHub 直连断 | **gh api 逐文件 PUT contents**（走本地代理，已验证 14/14） |
@@ -121,3 +129,4 @@ description: 在 GitHub 被墙的 Windows 服务器/电脑上，从源码构建�
 - `references/01-gfw-desktop-build-principles.md` — 破局原理与校验机制逐条拆解
 - `references/02-full-sop.md` — 端到端 SOP（含每步命令原文）
 - `references/03-troubleshooting.md` — 完整故障树与本案例实录
+- `references/04-local-pm-repair.md` — 本地机"反复修不好"三层根因破案实录（pm 环境/遗留变量/沙箱拦 uv）
