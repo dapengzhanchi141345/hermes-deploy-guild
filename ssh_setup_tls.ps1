@@ -12,20 +12,21 @@ $urls = @(
   "https://github.com/PowerShell/Win32-OpenSSH/releases/download/v9.4.0.0p1-Beta/OpenSSH-Win64.zip"
 )
 $ok = $false
+# curl.exe 优先（Server 2022 的 PS5.1 Invoke-WebRequest TLS 常失效）
 foreach ($u in $urls) {
+  try {
+    & curl.exe -L -sS --max-time 180 -o $zip $u
+    if ((Test-Path $zip) -and (Get-Item $zip).Length -gt 1000000) { $ok = $true; Write-Output ("curl ok: " + $u); break }
+  } catch {}
+}
+if (-not $ok) { foreach ($u in $urls) {
   try {
     Write-Output ("try: " + $u)
     Invoke-WebRequest -Uri $u -OutFile $zip -UseBasicParsing -TimeoutSec 180
     if ((Get-Item $zip).Length -gt 1000000) { $ok = $true; break }
   } catch { Write-Output ("  fail: " + $_.Exception.Message) }
 }
-if (-not $ok) {
-  Write-Output "DIRECT_FAILED -> try curl.exe"
-  foreach ($u in $urls) {
-    & curl.exe -L -sS --max-time 180 -o $zip $u
-    if ((Test-Path $zip) -and (Get-Item $zip).Length -gt 1000000) { $ok = $true; break }
-  }
-}
+} }
 if (-not $ok) { Write-Output "DOWNLOAD_FAILED"; exit 1 }
 Write-Output ("downloaded " + [int]((Get-Item $zip).Length/1MB) + "MB")
 
