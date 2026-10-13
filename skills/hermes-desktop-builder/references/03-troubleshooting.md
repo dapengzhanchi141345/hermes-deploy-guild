@@ -65,7 +65,8 @@
   （①②清掉后探测可通过，3.14 也会被 "Using existing Hermes Python" 接受）
 ```
 
-**一键修复**：`scripts/fix_backend_boot.ps1`（杀卡死进程 → 删 pending 标记+陈旧锁 → `setx HERMES_DESKTOP_HERMES` + `setx HERMES_DISABLE_LAZY_INSTALLS=1` 双保险）。
+**一键修复**：`scripts/fix_backend_boot.ps1`（杀卡死进程 → 删 pending 标记+陈旧锁 → 双保险变量）。
+> ⚠️ **2026-10-13 修正**：`setx HERMES_DISABLE_LAZY_INSTALLS=1` 这条"双保险"**在交付后必须删除**——它禁用 CLI 自愈，pm 托管环境损坏时桌面 backend 每次启动必挂（详见 references/04 §2.5）。fix_backend_boot 只在排障期临时用它跳过补依赖，交付前 `[Environment]::SetEnvironmentVariable('HERMES_DISABLE_LAZY_INSTALLS',$null,'User')` 删掉。
 
 **修复验证标准**（缺一不可）：
 - desktop.log：`Using existing Hermes Python` → `Starting Hermes backend` → **`HERMES_BACKEND_READY port=<n>`** → `Hermes backend is ready. Finalizing desktop startup`（全程约 60 秒）
@@ -117,6 +118,16 @@ gh api -X PUT repos/<owner>/<repo>/contents/<path> -f message="msg" -f content="
 | 一键 | `scripts/clean_server.ps1 [-DryRun] [-Pagefile 3072]`（单行语句风格，PS 5.1 安全） | — |
 
 **诊断顺序**：`Get-PSDrive C` + `Win32_OperatingSystem.FreePhysicalMemory` 先拍基线 → 清理 → 同命令报终态 + pagefile 待重启项。
+
+### H. 本地机「反复修不好」三层叠加根因（2026-10-13，详见 references/04）
+
+| 层 | 根因 | 识别信号 | 修法 |
+|---|---|---|---|
+| 1 | **pm 托管环境系统性损坏**：CLI 真身在 `installs\<hash>\environments\<env>\venv`（Py3.14），不是表面 3.11 venv；8 环境坏 5 个（pydantic_core/click/annotated_doc/cffi/venv 缺 python.exe）。疑似 WorkBuddy PYTHONPATH shim 劫持 os.remove 在 uv/pip 装包时把文件"安全回收" | venv import 全 OK 但 CLI 报 ModuleNotFoundError；桌面 backend 报 fastapi/uvicorn missing（表象） | 清 PYTHONPATH → 计划任务跑 `hermes pm repair` → 批量复测（fix_local_pm.ps1） |
+| 2 | **遗留 User 级 `HERMES_DISABLE_LAZY_INSTALLS=1`** 禁用自愈 | AI 会话 shell（登录早于 setx）没继承 → CLI 手测全通；用户双击/计划任务必挂 | 删 User 级变量（连同空的 HERMES_DESKTOP_HERMES） |
+| 3 | **沙箱/安全软件拦 uv 写缓存**（os error 5 写 cache\uv\.tmp） | `pm repair` 会话内永远 exit 1 静默失败；根目录手写测试却 OK | 挂计划任务（沙箱外）跑 repair，验收 LastTaskResult=0 |
+
+补充结论：真日志判定（谁 5 分钟内被写过谁真）/ 双 home 配置同步（聊天 404 而 CLI 好）/ electron 瞬退 exit 0 不写日志=单例锁，官方启动通道=计划任务 `HermesDesktopLaunch` / `hermes serve --host 127.0.0.1 --port 0` 可单独复现 backend / Start-Process 遇 http_proxy 大小写重复键炸 .NET。
 
 ## 实战时间线（2026-10-07，101.35.12.205）
 
