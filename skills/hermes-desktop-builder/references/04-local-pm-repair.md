@@ -112,7 +112,19 @@ Start-ScheduledTask -TaskName "HermesPmRepairOnce"
 | 11:0x | 删 User 级两变量 → Start-ScheduledTask HermesDesktopLaunch | ✅ `HERMES_BACKEND_READY port=60876` |
 | 11:1x | 各 profile backend 全部自动拉起；CLI + chief profile 双 pong | ✅ 用户验收 |
 
-## 五、检查清单（下次同类问题直接打勾）
+## 五、防复发：关闭自动更新（2026-10-13 下午实战验证）
+
+每次 auto-update 的 uv sync 都可能被 shim 再次破坏环境。关闭开关（CLI 验证 EXIT=0）：
+```
+hermes config set updates.check false          # 关闭 CLI/banner 被动更新检查（官方文档开关）
+hermes config set plugins.auto_update_check_hours 0   # 关闭插件更新检查 cadence
+```
+写入 home 的 config.yaml（`updates.check: false` + `plugins.auto_update_check_hours: 0`）。
+更新想装时手动说一声，按安全流程跑：全杀进程 → 计划任务 `hermes update`（注意国内 fetch_failed=预期失败，更新需要代理）。
+
+**修复顺序升级（下午实战教训）**：`pm repair` 前必须先杀全部 hermes 进程（含桌面端无限重试进程）+ `Stop-ScheduledTask` 停掉会 respawn 的任务（HermesGatewayLaunch / JinCeHermesCronTick），否则 uv 换文件报 0x800700E0 文件占用。`hermes update` 在国内 stop_class=fetch_failed（git 被墙）属预期，修环境只认 `hermes pm repair`。pm repair 是"建新代"策略：旧坏代留成僵尸不碍事，CLI/serve 解析当前健康代即可交付。
+
+## 六、检查清单（下次同类问题直接打勾）
 
 - [ ] User 级 `HERMES_DISABLE_LAZY_INSTALLS` / `HERMES_DESKTOP_HERMES` 已删？
 - [ ] 当前 shell `PYTHONPATH` 已清？`http_proxy`/`HTTP_PROXY` 大小写冲突已清？
