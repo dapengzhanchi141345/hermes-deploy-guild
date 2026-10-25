@@ -3,7 +3,9 @@ name: hermes-deploy
 description: 在远程 Windows / macOS 电脑（尤其向日葵/AweSun 远控）上快速安装并配置 Hermes（hermes-agent）智能体的完整作战手册：国内镜像极速安装路线、CLI 与桌面端（GUI）分离安装法、远控 GUI 自动化通道、hermes 模型配置向导、故障速查与验收清单。触发词：装Hermes、远程装hermes-agent、向日葵远程装、hermes桌面端装不上、hermes配key、hermes no API key、hermes desktop、远程部署智能体。
 ---
 
-# Hermes 远程极速部署手册（v1.1）
+# Hermes 远程极速部署手册（v1.2）
+
+> **v1.2 升级（2026-10-25，依据官方 Installation 文档深度学习）**：桌面端安装路线修正——**优先官方预构建 bundle（Win `.appinstaller`→MSIX / Mac DMG，首启免构建运行时）**，`-IncludeDesktop` 源码构建降为备用路线（需编译器+Electron 原生模块，易失败）；固化 **Python 3.14** 为官方首方运行版本；新增远程桌面 **Settings→Gateways** 方案。
 
 「Hermes速装团」的作战手册。目标：**在远程电脑（Windows / macOS）上把 Hermes 装好、配好、跑通，桌面端也装上，且全程可验证。**
 
@@ -41,7 +43,7 @@ skills/hermes-deploy/
 |----|------|---------|
 | 1 | 环境侦察 | 环境快照表 + 路线建议（有无 Python、镜像通不通、残留目录） |
 | 2 | 装 CLI | Windows：镜像一行 / 官方 install.ps1；macOS：`install.sh` |
-| 3 | 装桌面端 | **必须走官方安装器 + `-IncludeDesktop`**（见下方专章） |
+| 3 | 装桌面端 | **优先官方预构建 bundle（Win MSIX / Mac DMG，首启免构建）；源码构建 `-IncludeDesktop` 为备用**（见专章） |
 | 4 | 模型配置 | `hermes model` 向导配 provider + 写 `~/.hermes/.env` |
 | 5 | 验收 | `hermes --version` + 发 `hi` 有回复 + 桌面端能启动 + 截图 |
 
@@ -52,7 +54,11 @@ skills/hermes-deploy/
 irm https://res1.hermesagent.org.cn/install.ps1 | iex          # 国内镜像（首选，最快）
 & ([scriptblock]::Create((irm https://hermes-agent.nousresearch.com/install.ps1))) -NonInteractive  # 官方原生
 
-# ===== B. Windows 装【桌面端】GUI（唯一正解，必须带 -IncludeDesktop）=====
+# ===== B. Windows 装【桌面端】GUI：优先预构建 bundle（首启免构建，最稳）=====
+#   Win11 22H2+：下载官方 .appinstaller → 用 Windows App Installer 打开 → 装签名 MSIX
+#   产物：开始菜单/应用列表 Hermes（系统级 MSIX 应用）
+#
+# ===== B'. Windows 装【桌面端】GUI：源码构建备用路线（需编译器+Electron 原生模块，易失败）=====
 & ([scriptblock]::Create((irm https://hermes-agent.nousresearch.com/install.ps1))) -IncludeDesktop -NonInteractive
 # 产物：%LOCALAPPDATA%\hermes\hermes-agent\apps\desktop\release\win-unpacked\Hermes.exe
 #       + 桌面/开始菜单 Hermes.lnk
@@ -62,9 +68,10 @@ python -m pip install hermes-agent -i https://pypi.tuna.tsinghua.edu.cn/simple
 ```
 
 ```bash
-# ===== macOS / Linux / WSL2（一行）=====
+# ===== macOS / Linux / WSL2（CLI 一行）=====
 curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash
 source ~/.zshrc && hermes        # 代码 ~/.hermes/hermes-agent/，命令 ~/.local/bin/hermes
+# macOS 桌面端（Apple Silicon 专用）：下官方 DMG → 拖 Hermes.app 到 Applications（首启免构建）
 ```
 
 ```powershell
@@ -77,11 +84,16 @@ $env:ELECTRON_BUILDER_BINARIES_MIRROR='https://registry.npmmirror.com/-/binary/e
 
 ## ★ 桌面端（GUI）专章：三个必踩坑
 
-> 结论先行：**桌面端只能由官方 `install.ps1` 带 `-IncludeDesktop` 装出来**。`hermes desktop` 与 pip 路线都装不出。
+> 结论先行：**桌面端优先官方预构建 bundle（Win `.appinstaller`→MSIX / Mac DMG，首启免构建运行时）；`-IncludeDesktop` 源码构建为备用路线（需编译器+Electron 原生模块，易失败）。**`hermes desktop` 与 pip 路线都装不出 bundle。
+
+**两种桌面安装物（别混）**：
+- **预构建 bundle**：官方 MSIX（Win）/ DMG（Mac）包，含 agent+Python+依赖+预构建界面，**首启不构建运行时**，最稳；要求 Win11 22H2+ / Mac Apple Silicon。
+- **源码构建**（`-IncludeDesktop` / `hermes desktop`）：下载源码从源码构建 Electron，需编译器+Node 原生模块，易失败。
 
 | 坑 | 现象 | 解法 |
 |:---|:---|:---|
-| **pip 版无桌面端源码** | `hermes desktop` 报 `Desktop GUI source not found ...\site-packages\apps\desktop` | pip 包不含 `apps/desktop`，**换官方安装器**，别在 pip 上死磕 |
+| **优先用预构建 bundle** | 想最稳装桌面端 | Win 下 `.appinstaller` 装 MSIX / Mac 下 DMG 拖 Applications；避免源码构建 |
+| **pip 版无桌面端源码** | `hermes desktop` 报 `Desktop GUI source not found ...\site-packages\apps\desktop` | pip 包不含 `apps/desktop`，**换官方安装器/bundle**，别在 pip 上死磕 |
 | **漏 `-IncludeDesktop`** | 装完只有 CLI，没有 Hermes.exe | 安装器**默认不构建桌面端**，重跑并显式加 `-IncludeDesktop` |
 | **镜像域名解析失败** | `getaddrinfo ENOTFOUND npmmirror.com` / Electron 卡住 | 用 `registry.npmmirror.com`（**不是**裸 `npmmirror.com`），并设 `ELECTRON_*` 镜像 |
 | **残留目录拦路** | `...hermes-agent exists and is not a Hermes git checkout` | `Move-Item` 改名挪开再重跑 |
@@ -128,7 +140,7 @@ python scripts/cropregion.py 70 60 370 330 3.5
 ## 铁律（违反必踩坑）
 
 - **不盲按回车**：远控视频帧常滞后 1-2 个动作，必须先截图确认行内容。
-- **桌面端 ≠ CLI 的次生功能**：想 GUI 就用官方安装器 `-IncludeDesktop`；pip 路线无解。
+- **桌面端优先预构建 bundle**：Win `.appinstaller`→MSIX / Mac DMG（首启免构建，最稳）；bundle 不可用再走 `-IncludeDesktop` 源码构建。pip 路线无解。
 - **镜像域名只认能解析的**：`registry.npmmirror.com` ✅ / 裸 `npmmirror.com` ❌（ENOTFOUND）。
 - **命令写文件走通道**：远程中文 IME 会把空格变连字符、英文变中文（`FileSystem`→`文件系统`），绝不逐字盲打长命令。
 - **API Key 必须放 `~/.hermes/.env`**；只写 `config.yaml` 会报 `no API key`。
@@ -153,6 +165,10 @@ python scripts/cropregion.py 70 60 370 330 3.5
 | 中文乱码 / UnicodeEncodeError | 设 `PYTHONUTF8=1`（安装器已设 CP_UTF8） |
 | 更新后配置丢失 | `hermes config check` → `hermes config migrate` |
 | `not a Hermes git checkout` | 残留目录 → `Move-Item` 挪开，或换 `-InstallDir` |
+
+## 远程桌面（本地 GUI 连远程 backend）
+
+没有「独立的远程桌面下载」。装本地桌面包（Win MSIX / Mac DMG）后，从 **Settings → Gateways** 连接另一台机器的 Hermes backend 即可——CLI 跑在远程机，GUI 在本地。需要改包内文件前先 `hermes doctor` 看安装归属（provenance）。
 
 ## 深入材料
 
