@@ -12,7 +12,7 @@
 |:---|:---|
 | Mac 能开终端、有管理员密码 | **路线 1：官方一行 `install.sh`**（推荐） |
 | 想同局域网从别的电脑远程装 | **路线 2：SSH 远程安装**（比远控稳得多） |
-| 只想用图形界面、不碰终端 | **路线 3：DMG 桌面包**（⚠️ 受 macOS 版本/架构限制，见 §四） |
+| 只想用图形界面、不碰终端（Apple Silicon） | **路线 3：DMG 桌面包**（⚠️ 仅 Apple Silicon，见 §四） |
 | Mac 是 2012 年前后老机型 | **优先 CLI**，桌面端大概率不支持 |
 
 ---
@@ -88,9 +88,9 @@ export https_proxy=http://<proxy_host>:<port> http_proxy=http://<proxy_host>:<po
 - **Windows：MSIX / App Installer** —— 自包含包，要求 **Windows 11 22H2 或更新**，首启无需克隆源码/编译运行时（与源码脚本完全不同的一条路）。
 - Windows `Hermes-Setup.exe` —— 引导安装程序，本质是"下载并配置源码"。
 
-> ⚠️ **老 Mac 注意**：桌面端 DMG 对 **macOS 版本**与 **CPU 架构（Intel / Apple Silicon）** 有要求。
-> 例：MacBookPro9,2（2012 款，Ivy Bridge）最高只能到 macOS 10.15 Catalina，新版 DMG 很可能不支持。
-> **决策**：老机型直接走 CLI（§二）；桌面端先下 DMG 试装，失败就退回 CLI，不要死磕。
+> ⚠️ **架构红线（官方 2026-10 明确）**：macOS 桌面端 DMG **仅 Apple Silicon（M 系列芯片）**，**Intel x86 不受支持**。
+> 老 Mac（Intel）直接走 CLI（§二），不要试 DMG。
+> **决策**：Apple Silicon Mac 优先下 DMG 拖 Applications（首启免构建，最稳）；失败再退回 CLI。
 
 ---
 
@@ -119,7 +119,7 @@ hermes config set ... # 单改某项
 | 命令找不到 | `hermes: command not found` | `~/.local/bin` 不在 PATH → `echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zshrc && source ~/.zshrc` |
 | 无 git | 安装脚本前置失败 | `xcode-select --install` 或 `brew install git` |
 | Gatekeeper 拦截 | 打开 DMG 里 App 提示"来自身份不明的开发者" | 右键 → 打开；或 系统设置 → 隐私与安全性 → 仍要打开 |
-| 老机型架构 | Intel 装 Apple Silicon 包报错 | 下 **Intel/x86_64** 版本；或退回 CLI |
+| 架构不支持 | Intel Mac 装 DMG 报错（官方不支持） | **Intel Mac 只能走 CLI（§二）**；Apple Silicon 才下 DMG |
 | 国内 GitHub 慢 | clone 卡住 | 设 shell 代理；或改用国内镜像的 `install.sh`（若镜像站提供，**需先验证 URL 可达**） |
 | 更新后配置丢失 | 升级后 provider 没了 | `hermes config check` → `hermes config migrate` |
 
